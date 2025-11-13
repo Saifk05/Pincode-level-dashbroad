@@ -1,1 +1,18 @@
 @import "leaflet/dist/leaflet.css";
+/* Override Leaflet default image paths for Next.js */
+.leaflet-default-icon-path {
+  background-image: url("/leaflet/marker-icon.png");
+}
+
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+  background-image: url("/leaflet/marker-icon.png");
+}
+
+.leaflet-control-layers-toggle {
+  background-image: url("/leaflet/layers.png");
+}
+
+.leaflet-retina .leaflet-control-layers-toggle {
+  background-image: url("/leaflet/layers-2x.png");
+}
