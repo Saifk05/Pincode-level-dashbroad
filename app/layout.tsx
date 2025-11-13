@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Map Project",
-  description: "Leaflet Map with CSV Data",
+  title: "Logistics Route Analytics Map",
+  description: "Interactive geospatial clustering & hexagonal analysis"
 };
 
 export default function RootLayout({
