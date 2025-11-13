@@ -1000,27 +1000,700 @@
 // }
 
 
+// "use client";
+
+// import {
+//   MapContainer,
+//   TileLayer,
+//   Marker,
+//   Popup,
+//   CircleMarker,
+//   Tooltip,
+//   useMap,
+// } from "react-leaflet";
+// import { useEffect, useMemo, useState } from "react";
+// import supercluster from "supercluster";
+// import L from "leaflet";
+// import Papa from "papaparse";
+
+// // CSV row interface
+// interface CSVRow {
+//   start_gps?: string;
+//   start_area_code?: string; // PINCODE
+//   end_area_code?: string;
+//   category?: string;
+// }
+
+// interface PointFeature {
+//   type: "Feature";
+//   geometry: { type: "Point"; coordinates: [number, number] };
+//   properties: { row: CSVRow };
+// }
+
+// const icon = new L.Icon({
+//   iconUrl: "/marker-icon.png",
+//   iconSize: [25, 41],
+//   iconAnchor: [12, 41],
+// });
+
+// // Cluster renderer
+// function ClusterLayer({ points }: { points: PointFeature[] }) {
+//   const map = useMap();
+//   const [clusters, setClusters] = useState<any[]>([]);
+
+//   const index = useMemo(() => {
+//     const cluster = new supercluster({
+//       radius: 60,
+//       maxZoom: 17,
+//     });
+//     cluster.load(points);
+//     return cluster;
+//   }, [points]);
+
+//   useEffect(() => {
+//     const update = () => {
+//       const bounds = map.getBounds();
+//       const zoom = map.getZoom();
+
+//       const clusterData = index.getClusters(
+//         [
+//           bounds.getWest(),
+//           bounds.getSouth(),
+//           bounds.getEast(),
+//           bounds.getNorth(),
+//         ],
+//         Math.round(zoom)
+//       );
+
+//       setClusters(clusterData);
+//     };
+
+//     update();
+//     map.on("moveend", update);
+
+//     return () => {
+//       map.off("moveend", update);
+//     };
+//   }, [index, map]);
+
+//   return (
+//     <>
+//       {clusters.map((cluster: any, i: number) => {
+//         const [lng, lat] = cluster.geometry.coordinates;
+
+//         // Cluster
+//         if (cluster.properties.cluster) {
+//           const count = cluster.properties.point_count;
+
+//           return (
+//             <CircleMarker
+//               key={i}
+//               center={[lat, lng]}
+//               radius={15 + Math.min(count / 50, 25)}
+//               fillOpacity={0.6}
+//               color="red"
+//               eventHandlers={{
+//                 click: () => {
+//                   const nextZoom = index.getClusterExpansionZoom(
+//                     cluster.properties.cluster_id
+//                   );
+//                   map.setView([lat, lng], nextZoom);
+//                 },
+//               }}
+//             >
+//               {/* Tooltip only on hover */}
+//               <Tooltip direction="top">
+//                 {count} locations
+//               </Tooltip>
+
+//               <Popup>{count} locations</Popup>
+//             </CircleMarker>
+//           );
+//         }
+
+//         // Single point
+//         return (
+//           <Marker key={i} position={[lat, lng]} icon={icon}>
+//             {/* Tooltip only on hover */}
+//             <Tooltip direction="top">
+//               Pincode: {cluster.properties.row.start_area_code}
+//             </Tooltip>
+
+//             <Popup>
+//               <b>Pincode:</b> {cluster.properties.row.start_area_code}
+//               <br />
+//               <b>End Area:</b> {cluster.properties.row.end_area_code}
+//               <br />
+//               <b>Category:</b> {cluster.properties.row.category}
+//             </Popup>
+//           </Marker>
+//         );
+//       })}
+//     </>
+//   );
+// }
+
+// export default function MapView() {
+//   const [rawData, setRawData] = useState<PointFeature[]>([]);
+//   const [filteredData, setFilteredData] = useState<PointFeature[]>([]);
+
+//   // Filter states
+//   const [categoryFilter, setCategoryFilter] = useState("ALL");
+//   const [pincodeFilter, setPincodeFilter] = useState("ALL");
+
+//   // Load CSV
+//   useEffect(() => {
+//     Papa.parse<CSVRow>("/data.csv", {
+//       download: true,
+//       header: true,
+//       skipEmptyLines: true,
+//       complete: (result) => {
+//         const pts: PointFeature[] = [];
+
+//         result.data.forEach((row) => {
+//           if (!row.start_gps) return;
+
+//           const [lat, lng] = row.start_gps.split(",").map(Number);
+//           if (isNaN(lat) || isNaN(lng)) return;
+
+//           pts.push({
+//             type: "Feature",
+//             geometry: { type: "Point", coordinates: [lng, lat] },
+//             properties: { row },
+//           });
+//         });
+
+//         setRawData(pts);
+//         setFilteredData(pts);
+//       },
+//     });
+//   }, []);
+
+//   // Apply filters
+//   useEffect(() => {
+//     let updated = rawData;
+
+//     if (categoryFilter !== "ALL") {
+//       updated = updated.filter(
+//         (p) => p.properties.row.category === categoryFilter
+//       );
+//     }
+
+//     if (pincodeFilter !== "ALL") {
+//       updated = updated.filter(
+//         (p) => p.properties.row.start_area_code === pincodeFilter
+//       );
+//     }
+
+//     setFilteredData(updated);
+//   }, [categoryFilter, pincodeFilter, rawData]);
+
+//   // Extract dropdown values
+//   const categories = Array.from(
+//     new Set(rawData.map((p) => p.properties.row.category))
+//   );
+
+//   const pincodes = Array.from(
+//     new Set(rawData.map((p) => p.properties.row.start_area_code))
+//   );
+
+//   return (
+//     <>
+//       {/* FILTER PANEL */}
+//       <div
+//         style={{
+//           position: "absolute",
+//           zIndex: 1000,
+//           background: "white",
+//           padding: "10px",
+//           borderRadius: "8px",
+//           margin: "10px",
+//           boxShadow: "0px 2px 10px rgba(0,0,0,0.2)",
+//         }}
+//       >
+//         <h4>Filters</h4>
+
+//         <select
+//           value={categoryFilter}
+//           onChange={(e) => setCategoryFilter(e.target.value)}
+//           style={{ width: "180px", marginBottom: "10px" }}
+//         >
+//           <option value="ALL">All Categories</option>
+//           {categories.map((cat, i) => (
+//             <option key={i} value={cat || ""}>
+//               {cat || "Unknown"}
+//             </option>
+//           ))}
+//         </select>
+
+//         <select
+//           value={pincodeFilter}
+//           onChange={(e) => setPincodeFilter(e.target.value)}
+//           style={{ width: "180px" }}
+//         >
+//           <option value="ALL">All Pincodes</option>
+//           {pincodes.map((p, i) => (
+//             <option key={i} value={p || ""}>
+//               {p || "Unknown"}
+//             </option>
+//           ))}
+//         </select>
+//       </div>
+
+//       {/* MAP */}
+//       <MapContainer
+//         center={[20.5937, 78.9629]}
+//         zoom={5}
+//         style={{ height: "100vh", width: "100%" }}
+//       >
+//         <TileLayer
+//           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+//           attribution="© OpenStreetMap contributors"
+//         />
+
+//         <ClusterLayer points={filteredData} />
+//       </MapContainer>
+//     </>
+//   );
+// }
+
+
+// "use client";
+
+// import {
+//   MapContainer,
+//   TileLayer,
+//   Polygon,
+//   Marker,
+//   Tooltip,
+//   Popup,
+//   useMap,
+// } from "react-leaflet";
+// import { useState, useEffect, useMemo } from "react";
+// import Papa from "papaparse";
+// import * as h3 from "h3-js";
+// import L from "leaflet";
+// import supercluster from "supercluster";
+
+// // CSV interface
+// interface CSVRow {
+//   start_gps?: string;
+//   start_area_code?: string;
+// }
+
+// interface PointFeature {
+//   type: "Feature";
+//   geometry: { type: "Point"; coordinates: [number, number] };
+//   properties: { row: CSVRow };
+// }
+
+// // Marker icon
+// const icon = new L.Icon({
+//   iconUrl: "/marker-icon.png",
+//   iconSize: [25, 41],
+//   iconAnchor: [12, 41],
+// });
+
+// // Color rules
+// function getColor(count: number) {
+//   if (count > 2000) return "#0000FF";
+//   if (count > 1000) return "#FF00FF";
+//   if (count > 500) return "#FFFF00";
+//   if (count > 100) return "#00FF00";
+//   if (count > 50) return "#FFA500";
+//   return "#FF0000";
+// }
+
+// // Cluster Layer
+// function ClusterLayer({ points }: { points: PointFeature[] }) {
+//   const map = useMap();
+//   const [clusters, setClusters] = useState<any[]>([]);
+
+//   const index = useMemo(() => {
+//     const sc = new supercluster({
+//       radius: 60,
+//       maxZoom: 13,
+//     });
+//     sc.load(points);
+//     return sc;
+//   }, [points]);
+
+
+//   useEffect(() => {
+//   const update = () => {
+//     const bounds = map.getBounds();
+//     const zoom = map.getZoom();
+//     const c = index.getClusters(
+//       [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],
+//       zoom
+//     );
+//     setClusters(c);
+//   };
+
+//   update();
+//   map.on("moveend", update);
+
+//   return () => {
+//     map.off("moveend", update);  // now cleanup returns void
+//   };
+// }, [index, map]);
+
+//   return (
+//     <>
+//       {clusters.map((c: any, i: number) => {
+//         const [lng, lat] = c.geometry.coordinates;
+
+//         if (c.properties.cluster) {
+//           return (
+//             <Marker key={i} position={[lat, lng]} icon={icon}>
+//               <Popup>{c.properties.point_count} points</Popup>
+//             </Marker>
+//           );
+//         }
+//         return null;
+//       })}
+//     </>
+//   );
+// }
+
+// // MAIN COMPONENT
+// export default function MapView() {
+//   const [rawPoints, setRawPoints] = useState<PointFeature[]>([]);
+//   const [hexagons, setHexagons] = useState<any[]>([]);
+
+//   useEffect(() => {
+//     Papa.parse<CSVRow>("/data.csv", {
+//       download: true,
+//       header: true,
+//       skipEmptyLines: true,
+//       complete: (res) => {
+//         const pts: PointFeature[] = [];
+
+//         res.data.forEach((row) => {
+//           if (!row.start_gps) return;
+
+//           const [lat, lng] = row.start_gps.split(",").map(Number);
+//           if (isNaN(lat) || isNaN(lng)) return;
+
+//           pts.push({
+//             type: "Feature",
+//             geometry: { type: "Point", coordinates: [lng, lat] },
+//             properties: { row },
+//           });
+//         });
+
+//         setRawPoints(pts);
+
+//         // Group by pincode
+//         const groups: any = {};
+//         pts.forEach((p) => {
+//           const pin = p.properties.row.start_area_code;
+//           if (!groups[pin]) groups[pin] = [];
+//           groups[pin].push(p);
+//         });
+
+//         // Convert pincode group → H3 polygon
+//         const hexes: any[] = [];
+
+//         Object.keys(groups).forEach((pincode) => {
+//           const list = groups[pincode];
+
+//           const latAvg =
+//             list.reduce(
+//               (sum: number, p: PointFeature) => sum + p.geometry.coordinates[1],
+//               0
+//             ) / list.length;
+
+//           const lngAvg =
+//             list.reduce(
+//               (sum: number, p: PointFeature) => sum + p.geometry.coordinates[0],
+//               0
+//             ) / list.length;
+
+//           // LOWER RESOLUTION = BIGGER polygons
+//           const h3Index = h3.latLngToCell(latAvg, lngAvg, 5);
+
+//           const boundary = h3.cellToBoundary(h3Index).map((c) => [
+//             c[0], // lat
+//             c[1], // lng
+//           ]);
+
+//           hexes.push({
+//             pincode,
+//             count: list.length,
+//             coords: boundary,
+//           });
+//         });
+
+//         setHexagons(hexes);
+//       },
+//     });
+//   }, []);
+
+//   return (
+//     <MapContainer
+//       center={[22.5, 78.9]}
+//       zoom={5}
+//       style={{ height: "100vh", width: "100%" }}
+//     >
+//       <TileLayer
+//         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+//         attribution="© OpenStreetMap contributors"
+//       />
+
+//       {/* POLYGONS */}
+//       {hexagons.map((h, i) => (
+//         <Polygon
+//           key={i}
+//           positions={h.coords}
+//           pathOptions={{
+//             color: getColor(h.count),
+//             fillColor: getColor(h.count),
+//             fillOpacity: 0.45,
+//             weight: 2,
+//           }}
+//         >
+//           <Tooltip>
+//             Pincode {h.pincode} — Count: {h.count}
+//           </Tooltip>
+//         </Polygon>
+//       ))}
+
+//       <ClusterLayer points={rawPoints} />
+//     </MapContainer>
+//   );
+// }
+
+
+// "use client";
+
+// import {
+//   MapContainer,
+//   TileLayer,
+//   Polygon,
+//   Marker,
+//   Tooltip,
+//   Popup,
+//   useMap,
+// } from "react-leaflet";
+// import { useState, useEffect, useMemo } from "react";
+// import Papa from "papaparse";
+// import * as h3 from "h3-js";
+// import L from "leaflet";
+// import supercluster from "supercluster";
+
+// // CSV interface
+// interface CSVRow {
+//   start_gps?: string;
+//   start_area_code?: string;
+// }
+
+// interface PointFeature {
+//   type: "Feature";
+//   geometry: { type: "Point"; coordinates: [number, number] };
+//   properties: { row: CSVRow };
+// }
+
+// // Marker icon
+// const icon = new L.Icon({
+//   iconUrl: "/marker-icon.png",
+//   iconSize: [25, 41],
+//   iconAnchor: [12, 41],
+// });
+
+// // Color rules
+// function getColor(count: number) {
+//   if (count > 2000) return "#0000FF";
+//   if (count > 1000) return "#FF00FF";
+//   if (count > 500) return "#FFFF00";
+//   if (count > 100) return "#00FF00";
+//   if (count > 50) return "#FFA500";
+//   return "#FF0000";
+// }
+
+// // Cluster Layer
+// function ClusterLayer({ points }: { points: PointFeature[] }) {
+//   const map = useMap();
+//   const [clusters, setClusters] = useState<any[]>([]);
+
+//   const index = useMemo(() => {
+//     const sc = new supercluster({
+//       radius: 60,
+//       maxZoom: 13,
+//     });
+//     sc.load(points);
+//     return sc;
+//   }, [points]);
+
+//   useEffect(() => {
+//     const update = () => {
+//       const bounds = map.getBounds();
+//       const zoom = map.getZoom();
+//       const c = index.getClusters(
+//         [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],
+//         zoom
+//       );
+//       setClusters(c);
+//     };
+
+//     update();
+//     map.on("moveend", update);
+
+//     return () => {
+//       map.off("moveend", update);
+//     };
+//   }, [index, map]);
+
+//   return (
+//     <>
+//       {clusters.map((c: any, i: number) => {
+//         const [lng, lat] = c.geometry.coordinates;
+
+//         if (c.properties.cluster) {
+//           return (
+//             <Marker key={i} position={[lat, lng]} icon={icon}>
+//               <Popup>{c.properties.point_count} points</Popup>
+//             </Marker>
+//           );
+//         }
+//         return null;
+//       })}
+//     </>
+//   );
+// }
+
+// // MAIN COMPONENT
+// export default function MapView() {
+//   const [rawPoints, setRawPoints] = useState<PointFeature[]>([]);
+//   const [hexagons, setHexagons] = useState<any[]>([]);
+
+//   useEffect(() => {
+//     Papa.parse<CSVRow>("/data.csv", {
+//       download: true,
+//       header: true,
+//       skipEmptyLines: true,
+//       complete: (res) => {
+//         const pts: PointFeature[] = [];
+
+//         res.data.forEach((row) => {
+//           if (!row.start_gps) return;
+
+//           const [lat, lng] = row.start_gps.split(",").map(Number);
+//           if (isNaN(lat) || isNaN(lng)) return;
+
+//           pts.push({
+//             type: "Feature",
+//             geometry: { type: "Point", coordinates: [lng, lat] },
+//             properties: { row },
+//           });
+//         });
+
+//         setRawPoints(pts);
+
+//         // Group by pincode
+//         const groups: Record<string, PointFeature[]> = {};
+
+//         pts.forEach((p) => {
+//           const pin = p.properties.row.start_area_code ?? "UNKNOWN"; // FIXED
+//           if (!groups[pin]) groups[pin] = [];
+//           groups[pin].push(p);
+//         });
+
+//         // Convert pincode group → H3 polygon
+//         const hexes: any[] = [];
+
+//         Object.keys(groups).forEach((pincode) => {
+//           const list = groups[pincode];
+
+//           const latAvg =
+//             list.reduce(
+//               (sum: number, p: PointFeature) => sum + p.geometry.coordinates[1],
+//               0
+//             ) / list.length;
+
+//           const lngAvg =
+//             list.reduce(
+//               (sum: number, p: PointFeature) => sum + p.geometry.coordinates[0],
+//               0
+//             ) / list.length;
+
+//           // LOWER RESOLUTION → BIGGER polygon
+//           const h3Index = h3.latLngToCell(latAvg, lngAvg, 5);
+
+//           const boundary = h3.cellToBoundary(h3Index).map((c) => [
+//             c[0], // lat
+//             c[1], // lng
+//           ]);
+
+//           hexes.push({
+//             pincode,
+//             count: list.length,
+//             coords: boundary,
+//           });
+//         });
+
+//         setHexagons(hexes);
+//       },
+//     });
+//   }, []);
+
+//   return (
+//     <MapContainer
+//       center={[22.5, 78.9]}
+//       zoom={5}
+//       style={{ height: "100vh", width: "100%" }}
+//     >
+//       <TileLayer
+//         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+//         attribution="© OpenStreetMap contributors"
+//       />
+
+//       {/* POLYGONS */}
+//       {hexagons.map((h, i) => (
+//         <Polygon
+//           key={i}
+//           positions={h.coords}
+//           pathOptions={{
+//             color: getColor(h.count),
+//             fillColor: getColor(h.count),
+//             fillOpacity: 0.45,
+//             weight: 2,
+//           }}
+//         >
+//           <Tooltip>
+//             Pincode {h.pincode} — Count: {h.count}
+//           </Tooltip>
+//         </Polygon>
+//       ))}
+
+//       <ClusterLayer points={rawPoints} />
+//     </MapContainer>
+//   );
+// }
+
+
+
 "use client";
 
 import {
   MapContainer,
   TileLayer,
+  Polygon,
   Marker,
-  Popup,
-  CircleMarker,
   Tooltip,
+  Popup,
   useMap,
 } from "react-leaflet";
-import { useEffect, useMemo, useState } from "react";
-import supercluster from "supercluster";
-import L from "leaflet";
+import { useState, useEffect, useMemo } from "react";
 import Papa from "papaparse";
+import * as h3 from "h3-js";
+import L from "leaflet";
+import supercluster from "supercluster";
 
-// CSV row interface
+// CSV interface
 interface CSVRow {
   start_gps?: string;
-  start_area_code?: string; // PINCODE
-  end_area_code?: string;
+  start_area_code?: string;
   category?: string;
 }
 
@@ -1030,131 +1703,97 @@ interface PointFeature {
   properties: { row: CSVRow };
 }
 
+// Marker icon
 const icon = new L.Icon({
   iconUrl: "/marker-icon.png",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
 });
 
-// Cluster renderer
+// Color rules
+function getColor(count: number) {
+  if (count > 2000) return "#0000FF";
+  if (count > 1000) return "#FF00FF";
+  if (count > 500) return "#FFFF00";
+  if (count > 100) return "#00FF00";
+  if (count > 50) return "#FFA500";
+  return "#FF0000";
+}
+
+// Cluster Layer
 function ClusterLayer({ points }: { points: PointFeature[] }) {
   const map = useMap();
   const [clusters, setClusters] = useState<any[]>([]);
 
   const index = useMemo(() => {
-    const cluster = new supercluster({
-      radius: 60,
-      maxZoom: 17,
-    });
-    cluster.load(points);
-    return cluster;
+    const sc = new supercluster({ radius: 60, maxZoom: 13 });
+    sc.load(points);
+    return sc;
   }, [points]);
 
   useEffect(() => {
     const update = () => {
       const bounds = map.getBounds();
       const zoom = map.getZoom();
-
-      const clusterData = index.getClusters(
-        [
-          bounds.getWest(),
-          bounds.getSouth(),
-          bounds.getEast(),
-          bounds.getNorth(),
-        ],
-        Math.round(zoom)
+      const c = index.getClusters(
+        [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],
+        zoom
       );
-
-      setClusters(clusterData);
+      setClusters(c);
     };
 
     update();
     map.on("moveend", update);
 
     return () => {
-      map.off("moveend", update);
+      map.off("moveend", update); // ✔ cleanup returns void
     };
   }, [index, map]);
 
   return (
     <>
-      {clusters.map((cluster: any, i: number) => {
-        const [lng, lat] = cluster.geometry.coordinates;
-
-        // Cluster
-        if (cluster.properties.cluster) {
-          const count = cluster.properties.point_count;
-
+      {clusters.map((c: any, i: number) => {
+        const [lng, lat] = c.geometry.coordinates;
+        if (c.properties.cluster) {
           return (
-            <CircleMarker
-              key={i}
-              center={[lat, lng]}
-              radius={15 + Math.min(count / 50, 25)}
-              fillOpacity={0.6}
-              color="red"
-              eventHandlers={{
-                click: () => {
-                  const nextZoom = index.getClusterExpansionZoom(
-                    cluster.properties.cluster_id
-                  );
-                  map.setView([lat, lng], nextZoom);
-                },
-              }}
-            >
-              {/* Tooltip only on hover */}
-              <Tooltip direction="top">
-                {count} locations
-              </Tooltip>
-
-              <Popup>{count} locations</Popup>
-            </CircleMarker>
+            <Marker key={i} position={[lat, lng]} icon={icon}>
+              <Popup>{c.properties.point_count} points</Popup>
+            </Marker>
           );
         }
-
-        // Single point
-        return (
-          <Marker key={i} position={[lat, lng]} icon={icon}>
-            {/* Tooltip only on hover */}
-            <Tooltip direction="top">
-              Pincode: {cluster.properties.row.start_area_code}
-            </Tooltip>
-
-            <Popup>
-              <b>Pincode:</b> {cluster.properties.row.start_area_code}
-              <br />
-              <b>End Area:</b> {cluster.properties.row.end_area_code}
-              <br />
-              <b>Category:</b> {cluster.properties.row.category}
-            </Popup>
-          </Marker>
-        );
+        return null;
       })}
     </>
   );
 }
 
+// MAIN COMPONENT
 export default function MapView() {
-  const [rawData, setRawData] = useState<PointFeature[]>([]);
-  const [filteredData, setFilteredData] = useState<PointFeature[]>([]);
+  const [rawPoints, setRawPoints] = useState<PointFeature[]>([]);
+  const [hexagons, setHexagons] = useState<any[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+  const [selectedPincode, setSelectedPincode] = useState<string>("ALL");
+  const [pincodes, setPincodes] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
 
-  // Filter states
-  const [categoryFilter, setCategoryFilter] = useState("ALL");
-  const [pincodeFilter, setPincodeFilter] = useState("ALL");
-
-  // Load CSV
   useEffect(() => {
     Papa.parse<CSVRow>("/data.csv", {
       download: true,
       header: true,
       skipEmptyLines: true,
-      complete: (result) => {
+      complete: (res) => {
         const pts: PointFeature[] = [];
+        const pincodeSet = new Set<string>();
+        const categorySet = new Set<string>();
 
-        result.data.forEach((row) => {
+        res.data.forEach((row) => {
           if (!row.start_gps) return;
 
           const [lat, lng] = row.start_gps.split(",").map(Number);
           if (isNaN(lat) || isNaN(lng)) return;
+
+          pincodeSet.add(row.start_area_code || "UNKNOWN");
+          if (row.category) categorySet.add(row.category);
 
           pts.push({
             type: "Feature",
@@ -1163,86 +1802,80 @@ export default function MapView() {
           });
         });
 
-        setRawData(pts);
-        setFilteredData(pts);
+        setRawPoints(pts);
+        setPincodes(["ALL", ...Array.from(pincodeSet)]);
+        setCategories(["ALL", ...Array.from(categorySet)]);
       },
     });
   }, []);
 
-  // Apply filters
+  // Filter points
+  const filteredPoints = useMemo(() => {
+    return rawPoints.filter((p) => {
+      const pinMatch = selectedPincode === "ALL" || p.properties.row.start_area_code === selectedPincode;
+      const catMatch = selectedCategory === "ALL" || p.properties.row.category === selectedCategory;
+      return pinMatch && catMatch;
+    });
+  }, [rawPoints, selectedCategory, selectedPincode]);
+
+  // Group into H3 hexes
   useEffect(() => {
-    let updated = rawData;
+    const groups: Record<string, PointFeature[]> = {};
 
-    if (categoryFilter !== "ALL") {
-      updated = updated.filter(
-        (p) => p.properties.row.category === categoryFilter
-      );
-    }
+    filteredPoints.forEach((p) => {
+      const pin = p.properties.row.start_area_code ?? "UNKNOWN";
+      if (!groups[pin]) groups[pin] = [];
+      groups[pin].push(p);
+    });
 
-    if (pincodeFilter !== "ALL") {
-      updated = updated.filter(
-        (p) => p.properties.row.start_area_code === pincodeFilter
-      );
-    }
+    const hexes: any[] = [];
 
-    setFilteredData(updated);
-  }, [categoryFilter, pincodeFilter, rawData]);
+    Object.keys(groups).forEach((pincode) => {
+      const list = groups[pincode];
+      if (list.length === 0) return;
 
-  // Extract dropdown values
-  const categories = Array.from(
-    new Set(rawData.map((p) => p.properties.row.category))
-  );
+      const latAvg = list.reduce((s, p) => s + p.geometry.coordinates[1], 0) / list.length;
+      const lngAvg = list.reduce((s, p) => s + p.geometry.coordinates[0], 0) / list.length;
 
-  const pincodes = Array.from(
-    new Set(rawData.map((p) => p.properties.row.start_area_code))
-  );
+      const h3Index = h3.latLngToCell(latAvg, lngAvg, 5);
+      const boundary = h3.cellToBoundary(h3Index).map((c) => [c[0], c[1]]);
+
+      hexes.push({ pincode, count: list.length, coords: boundary });
+    });
+
+    setHexagons(hexes);
+  }, [filteredPoints]);
 
   return (
-    <>
-      {/* FILTER PANEL */}
-      <div
-        style={{
-          position: "absolute",
-          zIndex: 1000,
-          background: "white",
-          padding: "10px",
-          borderRadius: "8px",
-          margin: "10px",
-          boxShadow: "0px 2px 10px rgba(0,0,0,0.2)",
-        }}
-      >
-        <h4>Filters</h4>
-
+    <div>
+      <div className="p-3 bg-white shadow z-50 absolute top-2 left-2 rounded">
+        <label>Pincode: </label>
         <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          style={{ width: "180px", marginBottom: "10px" }}
+          value={selectedPincode}
+          onChange={(e) => setSelectedPincode(e.target.value)}
+          className="border p-1 ml-2"
         >
-          <option value="ALL">All Categories</option>
-          {categories.map((cat, i) => (
-            <option key={i} value={cat || ""}>
-              {cat || "Unknown"}
-            </option>
+          {pincodes.map((p) => (
+            <option key={p} value={p}>{p}</option>
           ))}
         </select>
 
+        <br />
+
+        <label>Category: </label>
         <select
-          value={pincodeFilter}
-          onChange={(e) => setPincodeFilter(e.target.value)}
-          style={{ width: "180px" }}
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          className="border p-1 ml-2 mt-2"
         >
-          <option value="ALL">All Pincodes</option>
-          {pincodes.map((p, i) => (
-            <option key={i} value={p || ""}>
-              {p || "Unknown"}
-            </option>
+          {categories.map((c) => (
+            <option key={c} value={c}>{c}</option>
           ))}
         </select>
       </div>
 
-      {/* MAP */}
       <MapContainer
-        center={[20.5937, 78.9629]}
+        center={[22.5, 78.9]}
         zoom={5}
         style={{ height: "100vh", width: "100%" }}
       >
@@ -1251,8 +1884,23 @@ export default function MapView() {
           attribution="© OpenStreetMap contributors"
         />
 
-        <ClusterLayer points={filteredData} />
+        {hexagons.map((h, i) => (
+          <Polygon
+            key={i}
+            positions={h.coords}
+            pathOptions={{
+              color: getColor(h.count),
+              fillColor: getColor(h.count),
+              fillOpacity: 0.45,
+              weight: 2,
+            }}
+          >
+            <Tooltip>Pincode {h.pincode} — Count: {h.count}</Tooltip>
+          </Polygon>
+        ))}
+
+        <ClusterLayer points={filteredPoints} />
       </MapContainer>
-    </>
+    </div>
   );
 }
