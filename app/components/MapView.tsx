@@ -5895,6 +5895,7 @@ interface CSVRow {
   end_gps?: string;
   start_area_code?: string;
   category?: string;
+  count?: number; // added for duplicate count tracking
 }
 
 interface PointFeature {
@@ -5996,7 +5997,9 @@ function ClusterLayer({ points }: { points: PointFeature[] }) {
 
 export default function MapView() {
   const [rawPoints, setRawPoints] = useState<PointFeature[]>([]);
-  const [duplicateSamples, setDuplicateSamples] = useState<CSVRow[]>([]);
+  const [duplicateSamples, setDuplicateSamples] = useState<
+    Array<CSVRow & { count: number }>
+  >([]);
 
   const [pincodes, setPincodes] = useState<string[]>(["ALL"]);
   const [categories, setCategories] = useState<string[]>(["ALL"]);
@@ -6026,21 +6029,16 @@ export default function MapView() {
           const pts: PointFeature[] = [];
           const pins = new Set<string>();
           const cats = new Set<string>();
-          const seenPairs = new Set<string>();
-          const duplicateList: CSVRow[] = [];
 
-          let nullCount = 0;
-          let sameGPSCount = 0;
-          let duplicateCount = 0;
+          const pairCount: Record<string, number> = {}; // NEW
+          const duplicateList: Array<CSVRow & { count: number }> = []; // NEW
+
+          let nullCount = 0,
+            sameGPSCount = 0,
+            duplicateCount = 0;
 
           res.data.forEach((row) => {
-            // 1. Remove NULL
-            if (
-              !row.start_gps ||
-              !row.end_gps ||
-              row.start_gps === "NULL" ||
-              row.end_gps === "NULL"
-            ) {
+            if (!row.start_gps || !row.end_gps || row.start_gps === "NULL" || row.end_gps === "NULL") {
               nullCount++;
               return;
             }
@@ -6053,26 +6051,27 @@ export default function MapView() {
               return;
             }
 
-            // 2. Remove identical start=end
             if (lat1 === lat2 && lng1 === lng2) {
               sameGPSCount++;
               return;
             }
 
-            // 3. Remove duplicate GPS pairs
+            // --- COUNT PAIRS ---
             const key = `${lat1},${lng1}_${lat2},${lng2}`;
-            if (seenPairs.has(key)) {
-              duplicateList.push(row);
+            pairCount[key] = (pairCount[key] || 0) + 1;
+
+            // If repeated → duplicate
+            if (pairCount[key] > 1) {
+              duplicateList.push({ ...row, count: pairCount[key] });
               duplicateCount++;
               return;
             }
-            seenPairs.add(key);
 
-            // 4. Filters
+            // Collect Filters
             if (row.start_area_code) pins.add(row.start_area_code);
             if (row.category) cats.add(row.category);
 
-            // 5. Add to map
+            // Add Marker
             pts.push({
               type: "Feature",
               geometry: { type: "Point", coordinates: [lng1, lat1] },
@@ -6142,7 +6141,7 @@ export default function MapView() {
         <p>Removed duplicate GPS pairs: <b>{removedDuplicates}</b></p>
         <p>Final cleaned rows: <b>{finalRows}</b></p>
 
-        {/* ---- DISPLAY FIRST 10 DUPLICATES ---- */}
+        {/* ---- Display duplicates ---- */}
         <h4>First 10 Duplicate GPS Pairs Removed:</h4>
 
         <table border={1} cellPadding={5} style={{ background: "white" }}>
@@ -6151,6 +6150,7 @@ export default function MapView() {
               <th>#</th>
               <th>start_gps</th>
               <th>end_gps</th>
+              <th>Repeated</th>
               <th>category</th>
               <th>pincode</th>
             </tr>
@@ -6161,6 +6161,7 @@ export default function MapView() {
                 <td>{i + 1}</td>
                 <td>{row.start_gps}</td>
                 <td>{row.end_gps}</td>
+                <td>{row.count}</td>
                 <td>{row.category}</td>
                 <td>{row.start_area_code}</td>
               </tr>
