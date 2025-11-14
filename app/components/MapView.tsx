@@ -6478,7 +6478,7 @@ export default function MapView() {
 
   return (
     <div>
-      {/* ---------------- STATS ---------------- */}
+      {/* ---------------- STATS ----------------
       <div style={{ padding: "10px", background: "#f0f0f0" }}>
         <h3>Data Cleaning Summary</h3>
         <p>Total rows: <b>{totalRows}</b></p>
@@ -6517,7 +6517,7 @@ export default function MapView() {
             </tbody>
           </table>
         </div>
-      </div>
+      </div> */}
 
       {/* ---------------- FILTERS ---------------- */}
       <div className="control-panel">
