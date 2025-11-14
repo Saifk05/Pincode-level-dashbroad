@@ -6358,7 +6358,7 @@ export default function MapView() {
   /* ------------ LOAD CSV ------------ */
   useEffect(() => {
     async function loadCSV() {
-      const response = await fetch("/data1.csv");
+      const response = await fetch("/data-1763151325887.csv");
       const csvText = await response.text();
 
       Papa.parse<CSVRow>(csvText, {
