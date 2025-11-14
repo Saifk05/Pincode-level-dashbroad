@@ -3984,6 +3984,394 @@
 
 
 
+// "use client";
+
+// import {
+//   MapContainer,
+//   TileLayer,
+//   Polygon,
+//   Marker,
+//   Tooltip,
+//   Popup,
+//   useMap,
+// } from "react-leaflet";
+// import { useState, useEffect, useMemo } from "react";
+// import Papa from "papaparse";
+// import * as h3 from "h3-js";
+// import L from "leaflet";
+// import supercluster from "supercluster";
+
+// import "./MapControls.css";
+
+// /* ---------------- CHART IMPORTS ---------------- */
+// import {
+//   Chart as ChartJS,
+//   CategoryScale,
+//   LinearScale,
+//   BarElement,
+//   Title,
+//   Tooltip as ChartTooltip,
+//   Legend,
+// } from "chart.js";
+// import { Bar } from "react-chartjs-2";
+
+// ChartJS.register(
+//   CategoryScale,
+//   LinearScale,
+//   BarElement,
+//   Title,
+//   ChartTooltip,
+//   Legend
+// );
+
+// /* ---------------- INTERFACES ---------------- */
+
+// interface CSVRow {
+//   start_gps?: string;
+//   end_gps?: string;
+//   start_area_code?: string;
+//   end_area_code?: string;
+//   category?: string;
+// }
+
+// interface PointFeature {
+//   type: "Feature";
+//   geometry: { type: "Point"; coordinates: [number, number] };
+//   properties: { row: CSVRow };
+// }
+
+// interface Hexagon {
+//   pincode: string;
+//   count: number;
+//   coords: [number, number][];
+// }
+
+// /* ---------------- MARKER ICON ---------------- */
+
+// const icon = new L.Icon({
+//   iconUrl: "/marker-icon.png",
+//   iconSize: [25, 41],
+//   iconAnchor: [12, 41],
+// });
+
+// /* ---------------- COLOR SCALE ---------------- */
+
+// function getColor(count: number) {
+//   if (count > 2000) return "#0000FF";
+//   if (count > 1000) return "#FF00FF";
+//   if (count > 500) return "#FFFF00";
+//   if (count > 100) return "#00FF00";
+//   if (count > 50) return "#FFA500";
+//   return "#FF0000";
+// }
+
+// /* ---------------- MAP REF SETTER ---------------- */
+
+// function MapRefSetter({ setMap }: { setMap: (map: L.Map) => void }) {
+//   const map = useMap();
+//   useEffect(() => {
+//     setMap(map);
+//   }, [map]);
+//   return null;
+// }
+
+// /* ---------------- CLUSTER LAYER ---------------- */
+
+// function ClusterLayer({ points }: { points: PointFeature[] }) {
+//   const map = useMap();
+//   const [clusters, setClusters] = useState<any[]>([]);
+
+//   const index = useMemo(() => {
+//     const sc = new supercluster({ radius: 60, maxZoom: 13 });
+//     sc.load(points);
+//     return sc;
+//   }, [points]);
+
+//   useEffect(() => {
+//     if (!map) return;
+
+//     const update = () => {
+//       const bounds = map.getBounds();
+//       const zoom = map.getZoom();
+
+//       const clusters = index.getClusters(
+//         [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],
+//         zoom
+//       );
+//       setClusters(clusters);
+//     };
+
+//     update();
+//     map.on("moveend", update);
+
+//     return () => {
+//       map.off("moveend", update);
+//     };
+//   }, [index, map]);
+
+//   return (
+//     <>
+//       {clusters.map((c: any, i: number) => {
+//         const [lng, lat] = c.geometry.coordinates;
+
+//         if (c.properties.cluster) {
+//           return (
+//             <Marker key={i} position={[lat, lng]} icon={icon}>
+//               <Popup>{c.properties.point_count} points</Popup>
+//             </Marker>
+//           );
+//         }
+
+//         return (
+//           <Marker key={i} position={[lat, lng]} icon={icon}>
+//             <Popup>
+//               Lat: {lat} / Lng: {lng} <br />
+//               Pincode: {c.properties.row.start_area_code} <br />
+//               Category: {c.properties.row.category}
+//             </Popup>
+//           </Marker>
+//         );
+//       })}
+//     </>
+//   );
+// }
+
+// /* ---------------- MAIN COMPONENT ---------------- */
+
+// export default function MapView() {
+//   const [rawPoints, setRawPoints] = useState<PointFeature[]>([]);
+//   const [hexagons, setHexagons] = useState<Hexagon[]>([]);
+//   const [selectedCategory, setSelectedCategory] = useState("ALL");
+//   const [selectedPincode, setSelectedPincode] = useState("ALL");
+
+//   const [pincodes, setPincodes] = useState<string[]>([]);
+//   const [categories, setCategories] = useState<string[]>([]);
+//   const [mapRef, setMapRef] = useState<L.Map | null>(null);
+
+//   /* ------------ CSV UPLOAD ------------ */
+
+//   const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+//     const file = e.target.files?.[0];
+//     if (!file) return;
+
+//     Papa.parse<CSVRow>(file, {
+//       header: true,
+//       skipEmptyLines: true,
+//       complete: (res) => {
+//         const pts: PointFeature[] = [];
+//         const pins = new Set<string>();
+//         const cats = new Set<string>();
+
+//         res.data.forEach((row) => {
+//           if (
+//             !row.start_area_code ||
+//             !row.end_area_code ||
+//             !row.start_gps ||
+//             !row.end_gps ||
+//             row.start_area_code.trim() === "" ||
+//             row.end_area_code.trim() === "" ||
+//             row.start_gps.trim() === "" ||
+//             row.end_gps.trim() === ""
+//           ) {
+//             return;
+//           }
+
+//           const [lat, lng] = row.start_gps.split(",").map(Number);
+//           if (isNaN(lat) || isNaN(lng)) return;
+
+//           pins.add(row.start_area_code);
+//           if (row.category) cats.add(row.category);
+
+//           pts.push({
+//             type: "Feature",
+//             geometry: { type: "Point", coordinates: [lng, lat] },
+//             properties: { row },
+//           });
+//         });
+
+//         setRawPoints(pts);
+//         setPincodes(["ALL", ...Array.from(pins)]);
+//         setCategories(["ALL", ...Array.from(cats)]);
+//       },
+//     });
+//   };
+
+//   /* ------------ FILTER POINTS ------------ */
+
+//   const filteredPoints = useMemo(() => {
+//     return rawPoints.filter((p) => {
+//       const pinOK =
+//         selectedPincode === "ALL" ||
+//         p.properties.row.start_area_code === selectedPincode;
+
+//       const catOK =
+//         selectedCategory === "ALL" ||
+//         p.properties.row.category === selectedCategory;
+
+//       return pinOK && catOK;
+//     });
+//   }, [rawPoints, selectedPincode, selectedCategory]);
+
+//   /* ------------ TOP 10 CATEGORY BAR GRAPH ------------ */
+
+//   const top10Data = useMemo(() => {
+//     if (selectedPincode === "ALL") return null;
+
+//     const catCount: Record<string, number> = {};
+
+//     rawPoints
+//       .filter((p) => p.properties.row.start_area_code === selectedPincode)
+//       .forEach((p) => {
+//         const cat = p.properties.row.category || "UNKNOWN";
+//         catCount[cat] = (catCount[cat] || 0) + 1;
+//       });
+
+//     const sorted = Object.entries(catCount)
+//       .sort((a, b) => b[1] - a[1])
+//       .slice(0, 10);
+
+//     return {
+//       labels: sorted.map((s) => s[0]),
+//       datasets: [
+//         {
+//           label: `Top 10 Categories — ${selectedPincode}`,
+//           data: sorted.map((s) => s[1]),
+//           backgroundColor: "rgba(75, 192, 192, 0.6)",
+//         },
+//       ],
+//     };
+//   }, [selectedPincode, rawPoints]);
+
+//   /* ------------ BUILD HEXAGONS ------------ */
+
+//   useEffect(() => {
+//     const groups: Record<string, PointFeature[]> = {};
+
+//     filteredPoints.forEach((p) => {
+//       const pin = p.properties.row.start_area_code || "UNKNOWN";
+//       if (!groups[pin]) groups[pin] = [];
+//       groups[pin].push(p);
+//     });
+
+//     const hex: Hexagon[] = [];
+
+//     Object.keys(groups).forEach((pin) => {
+//       const list = groups[pin];
+//       if (list.length === 0) return;
+
+//       const latAvg =
+//         list.reduce((s, p) => s + p.geometry.coordinates[1], 0) /
+//         list.length;
+
+//       const lngAvg =
+//         list.reduce((s, p) => s + p.geometry.coordinates[0], 0) /
+//         list.length;
+
+//       const cell = h3.latLngToCell(latAvg, lngAvg, 7);
+
+//       const boundary = h3
+//         .cellToBoundary(cell)
+//         // .map(([lat, lng]) => [lat, lng]);
+//         .map((coords) => [coords[0], coords[1]] as [number, number]);
+
+//       hex.push({ pincode: pin, count: list.length, coords: boundary });
+//     });
+
+//     setHexagons(hex);
+//   }, [filteredPoints]);
+
+//   /* ------------ AUTO-ZOOM ------------ */
+
+//   useEffect(() => {
+//     if (!mapRef || selectedPincode === "ALL") return;
+
+//     const pts = rawPoints.filter(
+//       (p) => p.properties.row.start_area_code === selectedPincode
+//     );
+//     if (pts.length === 0) return;
+
+//     const bounds = L.latLngBounds(
+//       pts.map((p) => [p.geometry.coordinates[1], p.geometry.coordinates[0]])
+//     );
+
+//     mapRef.fitBounds(bounds, { padding: [50, 50] });
+//   }, [selectedPincode, mapRef, rawPoints]);
+
+//   /* ------------ RENDER UI ------------ */
+
+//   return (
+//     <div>
+//       <div className="control-panel">
+//         <label>Upload CSV</label>
+//         <input type="file" accept=".csv" onChange={handleCSVUpload} />
+
+//         <label>Pincode</label>
+//         <select
+//           value={selectedPincode}
+//           onChange={(e) => setSelectedPincode(e.target.value)}
+//         >
+//           {pincodes.map((p) => (
+//             <option key={p}>{p}</option>
+//           ))}
+//         </select>
+
+//         <label>Category</label>
+//         <select
+//           value={selectedCategory}
+//           onChange={(e) => setSelectedCategory(e.target.value)}
+//         >
+//           {categories.map((c) => (
+//             <option key={c}>{c}</option>
+//           ))}
+//         </select>
+//       </div>
+
+//       {/* --------- TOP 10 BAR GRAPH --------- */}
+//       {top10Data && (
+//             <div className="chart-overlay">
+//               <h3>Top 10 Categories for Pincode {selectedPincode}</h3>
+//               <Bar data={top10Data} />
+//             </div>
+//           )}
+
+
+
+//       <MapContainer
+//         center={[22.5, 78.9]}
+//         zoom={5}
+//         style={{ height: "100vh", width: "100%" }}
+//       >
+//         <MapRefSetter setMap={setMapRef} />
+
+//         <TileLayer
+//           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+//           attribution="© OpenStreetMap contributors"
+//         />
+
+//         {hexagons.map((h, i) => (
+//           <Polygon
+//             key={i}
+//             positions={h.coords as any}
+//             pathOptions={{
+//               color: getColor(h.count),
+//               fillColor: getColor(h.count),
+//               fillOpacity: 0.15,
+//               weight: 1.2,
+//             }}
+//           >
+//             <Tooltip>
+//               {h.pincode} — {h.count} points
+//             </Tooltip>
+//           </Polygon>
+//         ))}
+
+//         <ClusterLayer points={filteredPoints} />
+//       </MapContainer>
+//     </div>
+//   );
+// }
+
+
 "use client";
 
 import {
@@ -4024,13 +4412,10 @@ ChartJS.register(
   Legend
 );
 
-/* ---------------- INTERFACES ---------------- */
-
+/* ---------------- TYPES ---------------- */
 interface CSVRow {
   start_gps?: string;
-  end_gps?: string;
   start_area_code?: string;
-  end_area_code?: string;
   category?: string;
 }
 
@@ -4040,14 +4425,23 @@ interface PointFeature {
   properties: { row: CSVRow };
 }
 
+interface BasePincode {
+  pin_code: string;
+  latitude: number;
+  longitude: number;
+  state: string;
+  district: string;
+  office_name: string;
+}
+
 interface Hexagon {
   pincode: string;
-  count: number;
   coords: [number, number][];
+  meta: BasePincode;
+  count: number;
 }
 
 /* ---------------- MARKER ICON ---------------- */
-
 const icon = new L.Icon({
   iconUrl: "/marker-icon.png",
   iconSize: [25, 41],
@@ -4055,28 +4449,23 @@ const icon = new L.Icon({
 });
 
 /* ---------------- COLOR SCALE ---------------- */
-
 function getColor(count: number) {
   if (count > 2000) return "#0000FF";
   if (count > 1000) return "#FF00FF";
   if (count > 500) return "#FFFF00";
   if (count > 100) return "#00FF00";
   if (count > 50) return "#FFA500";
-  return "#FF0000";
+  return "#FF0000"; // red
 }
 
 /* ---------------- MAP REF SETTER ---------------- */
-
 function MapRefSetter({ setMap }: { setMap: (map: L.Map) => void }) {
   const map = useMap();
-  useEffect(() => {
-    setMap(map);
-  }, [map]);
+  useEffect(() => setMap(map), [map]);
   return null;
 }
 
 /* ---------------- CLUSTER LAYER ---------------- */
-
 function ClusterLayer({ points }: { points: PointFeature[] }) {
   const map = useMap();
   const [clusters, setClusters] = useState<any[]>([]);
@@ -4087,27 +4476,27 @@ function ClusterLayer({ points }: { points: PointFeature[] }) {
     return sc;
   }, [points]);
 
-  useEffect(() => {
-    if (!map) return;
+useEffect(() => {
+  if (!map) return undefined;
 
-    const update = () => {
-      const bounds = map.getBounds();
-      const zoom = map.getZoom();
+  const update = () => {
+    const bounds = map.getBounds();
+    const zoom = map.getZoom();
 
-      const clusters = index.getClusters(
-        [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],
-        zoom
-      );
-      setClusters(clusters);
-    };
+    const cls = index.getClusters(
+      [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],
+      zoom
+    );
+    setClusters(cls);
+  };
 
-    update();
-    map.on("moveend", update);
+  map.on("moveend", update);
+  update();
 
-    return () => {
-      map.off("moveend", update);
-    };
-  }, [index, map]);
+  return () => {
+    map.off("moveend", update);
+  };
+}, [index, map]);
 
   return (
     <>
@@ -4141,15 +4530,23 @@ function ClusterLayer({ points }: { points: PointFeature[] }) {
 export default function MapView() {
   const [rawPoints, setRawPoints] = useState<PointFeature[]>([]);
   const [hexagons, setHexagons] = useState<Hexagon[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState("ALL");
+  const [basePincodes, setBasePincodes] = useState<BasePincode[]>([]);
   const [selectedPincode, setSelectedPincode] = useState("ALL");
+  const [selectedCategory, setSelectedCategory] = useState("ALL");
+  const [pincodeCounts, setPincodeCounts] = useState<Record<string, number>>({});
 
-  const [pincodes, setPincodes] = useState<string[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [pincodes, setPincodes] = useState<string[]>(["ALL"]);
+  const [categories, setCategories] = useState<string[]>(["ALL"]);
   const [mapRef, setMapRef] = useState<L.Map | null>(null);
 
-  /* ------------ CSV UPLOAD ------------ */
+  /* ------------ LOAD BASE JSON ------------ */
+  useEffect(() => {
+    fetch("/pincode_data.json")
+      .then((r) => r.json())
+      .then((data) => setBasePincodes(data));
+  }, []);
 
+  /* ------------ CSV UPLOAD ------------ */
   const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -4163,18 +4560,7 @@ export default function MapView() {
         const cats = new Set<string>();
 
         res.data.forEach((row) => {
-          if (
-            !row.start_area_code ||
-            !row.end_area_code ||
-            !row.start_gps ||
-            !row.end_gps ||
-            row.start_area_code.trim() === "" ||
-            row.end_area_code.trim() === "" ||
-            row.start_gps.trim() === "" ||
-            row.end_gps.trim() === ""
-          ) {
-            return;
-          }
+          if (!row.start_gps || !row.start_area_code) return;
 
           const [lat, lng] = row.start_gps.split(",").map(Number);
           if (isNaN(lat) || isNaN(lng)) return;
@@ -4197,7 +4583,6 @@ export default function MapView() {
   };
 
   /* ------------ FILTER POINTS ------------ */
-
   const filteredPoints = useMemo(() => {
     return rawPoints.filter((p) => {
       const pinOK =
@@ -4212,8 +4597,60 @@ export default function MapView() {
     });
   }, [rawPoints, selectedPincode, selectedCategory]);
 
-  /* ------------ TOP 10 CATEGORY BAR GRAPH ------------ */
+  /* ------------ COUNT PER PINCODE ------------ */
+  useEffect(() => {
+    const counts: Record<string, number> = {};
+    filteredPoints.forEach((p) => {
+      const pin = p.properties.row.start_area_code!;
+      counts[pin] = (counts[pin] || 0) + 1;
+    });
+    setPincodeCounts(counts);
+  }, [filteredPoints]);
 
+  /* ------------ BUILD BASE HEXAGONS ------------ */
+  useEffect(() => {
+    if (basePincodes.length === 0) return;
+
+    const hexes: Hexagon[] = [];
+
+    basePincodes.forEach((row) => {
+      const lat = Number(row.latitude);
+      const lng = Number(row.longitude);
+      if (!lat || !lng) return;
+
+      const cell = h3.latLngToCell(lat, lng, 7);
+      const boundary = h3
+        .cellToBoundary(cell)
+        .map(([lat, lng]) => [lat, lng] as [number, number]);
+
+      hexes.push({
+        pincode: row.pin_code,
+        coords: boundary,
+        meta: row,
+        count: 0,
+      });
+    });
+
+    setHexagons(hexes);
+  }, [basePincodes]);
+
+  /* ------------ AUTO-ZOOM ------------ */
+  useEffect(() => {
+    if (!mapRef || selectedPincode === "ALL") return;
+
+    const pts = rawPoints.filter(
+      (p) => p.properties.row.start_area_code === selectedPincode
+    );
+    if (pts.length === 0) return;
+
+    const bounds = L.latLngBounds(
+      pts.map((p) => [p.geometry.coordinates[1], p.geometry.coordinates[0]])
+    );
+
+    mapRef.fitBounds(bounds, { padding: [50, 50] });
+  }, [selectedPincode, mapRef, rawPoints]);
+
+  /* ------------ TOP 10 CHART ------------ */
   const top10Data = useMemo(() => {
     if (selectedPincode === "ALL") return null;
 
@@ -4242,63 +4679,7 @@ export default function MapView() {
     };
   }, [selectedPincode, rawPoints]);
 
-  /* ------------ BUILD HEXAGONS ------------ */
-
-  useEffect(() => {
-    const groups: Record<string, PointFeature[]> = {};
-
-    filteredPoints.forEach((p) => {
-      const pin = p.properties.row.start_area_code || "UNKNOWN";
-      if (!groups[pin]) groups[pin] = [];
-      groups[pin].push(p);
-    });
-
-    const hex: Hexagon[] = [];
-
-    Object.keys(groups).forEach((pin) => {
-      const list = groups[pin];
-      if (list.length === 0) return;
-
-      const latAvg =
-        list.reduce((s, p) => s + p.geometry.coordinates[1], 0) /
-        list.length;
-
-      const lngAvg =
-        list.reduce((s, p) => s + p.geometry.coordinates[0], 0) /
-        list.length;
-
-      const cell = h3.latLngToCell(latAvg, lngAvg, 7);
-
-      const boundary = h3
-        .cellToBoundary(cell)
-        // .map(([lat, lng]) => [lat, lng]);
-        .map((coords) => [coords[0], coords[1]] as [number, number]);
-
-      hex.push({ pincode: pin, count: list.length, coords: boundary });
-    });
-
-    setHexagons(hex);
-  }, [filteredPoints]);
-
-  /* ------------ AUTO-ZOOM ------------ */
-
-  useEffect(() => {
-    if (!mapRef || selectedPincode === "ALL") return;
-
-    const pts = rawPoints.filter(
-      (p) => p.properties.row.start_area_code === selectedPincode
-    );
-    if (pts.length === 0) return;
-
-    const bounds = L.latLngBounds(
-      pts.map((p) => [p.geometry.coordinates[1], p.geometry.coordinates[0]])
-    );
-
-    mapRef.fitBounds(bounds, { padding: [50, 50] });
-  }, [selectedPincode, mapRef, rawPoints]);
-
   /* ------------ RENDER UI ------------ */
-
   return (
     <div>
       <div className="control-panel">
@@ -4326,15 +4707,12 @@ export default function MapView() {
         </select>
       </div>
 
-      {/* --------- TOP 10 BAR GRAPH --------- */}
       {top10Data && (
-            <div className="chart-overlay">
-              <h3>Top 10 Categories for Pincode {selectedPincode}</h3>
-              <Bar data={top10Data} />
-            </div>
-          )}
-
-
+        <div className="chart-overlay">
+          <h3>Top 10 Categories for Pincode {selectedPincode}</h3>
+          <Bar data={top10Data} />
+        </div>
+      )}
 
       <MapContainer
         center={[22.5, 78.9]}
@@ -4348,22 +4726,30 @@ export default function MapView() {
           attribution="© OpenStreetMap contributors"
         />
 
-        {hexagons.map((h, i) => (
-          <Polygon
-            key={i}
-            positions={h.coords as any}
-            pathOptions={{
-              color: getColor(h.count),
-              fillColor: getColor(h.count),
-              fillOpacity: 0.15,
-              weight: 1.2,
-            }}
-          >
-            <Tooltip>
-              {h.pincode} — {h.count} points
-            </Tooltip>
-          </Polygon>
-        ))}
+        {/* BASE + HIGHLIGHTED HEXAGONS */}
+        {hexagons.map((h, i) => {
+          const count = pincodeCounts[h.pincode] || 0;
+          return (
+            <Polygon
+              key={i}
+              positions={h.coords}
+              pathOptions={{
+                color: count ? getColor(count) : "#999",
+                fillColor: count ? getColor(count) : "#ccc",
+                fillOpacity: count ? 0.45 : 0.2,
+                weight: count ? 1.5 : 0.4,
+              }}
+            >
+              <Tooltip>
+                <b>Pincode:</b> {h.pincode} <br />
+                <b>District:</b> {h.meta.district} <br />
+                <b>State:</b> {h.meta.state} <br />
+                <b>Office:</b> {h.meta.office_name} <br />
+                <b>Points:</b> {count}
+              </Tooltip>
+            </Polygon>
+          );
+        })}
 
         <ClusterLayer points={filteredPoints} />
       </MapContainer>
