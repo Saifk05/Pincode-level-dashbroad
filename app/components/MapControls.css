@@ -1,42 +1,42 @@
-/* ==== CONTROL PANEL CONTAINER ==== */
 .control-panel {
   position: absolute;
-  top: 90px;          /* moved down so it does not overlap map zoom buttons */
+  top: 20px;
   left: 20px;
   z-index: 1000;
 
-  background: #ffffff;
-  padding: 18px 20px;
-  width: 260px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
 
-  border-radius: 12px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+  padding: 15px 18px;
+  border-radius: 10px;
 
-  font-family: "Inter", Arial, sans-serif;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
+
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  width: 220px;
 }
 
-/* ==== LABELS ==== */
 .control-panel label {
   font-size: 14px;
   font-weight: 600;
-  margin-top: 14px;
-  display: block;
-  color: #222;
+  color: #333;
 }
 
-/* ==== SELECT DROPDOWNS ==== */
 .control-panel select {
   width: 100%;
-  padding: 8px 10px;
-  margin-top: 6px;
-
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  background: white;
+  padding: 8px;
   font-size: 14px;
+
+  border-radius: 6px;
+  border: 1px solid #ccc;
+
+  background: white;
   cursor: pointer;
 
-  transition: 0.15s ease;
+  transition: 0.2s;
 }
 
 .control-panel select:hover {
@@ -46,60 +46,5 @@
 .control-panel select:focus {
   outline: none;
   border-color: #007bff;
-  box-shadow: 0 0 3px rgba(0, 123, 255, 0.4);
-}
-
-/* ==== FILE INPUT ==== */
-.control-panel input[type="file"] {
-  width: 100%;
-  margin-top: 6px;
-
-  font-size: 14px;
-  padding: 6px;
-}
-
-/* Optional: hide ugly default file upload button on some browsers */
-.control-panel input[type="file"]::-webkit-file-upload-button {
-  padding: 6px 10px;
-  border: 1px solid #bbb;
-  background: #eee;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: 0.15s;
-}
-
-.control-panel input[type="file"]::-webkit-file-upload-button:hover {
-  background: #e2e2e2;
-}
-
-/* ==== FILE NAME DISPLAY ==== */
-.file-name {
-  font-size: 12px;
-  color: #555;
-  margin-top: 5px;
-
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-
-.chart-overlay {
-  position: absolute;
-  top: 20px;            /* adjust as needed */
-  right: 20px;          /* adjust as needed */
-  z-index: 1200;
-
-  width: 480px;         /* chart box width */
-  background: #ffffff;
-  padding: 18px 22px;
-
-  border-radius: 12px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
-}
-
-.chart-overlay h3 {
-  text-align: center;
-  margin-bottom: 15px;
-  font-size: 16px;
+  box-shadow: 0 0 4px rgba(0, 123, 255, 0.3);
 }

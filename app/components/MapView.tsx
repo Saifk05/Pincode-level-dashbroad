@@ -6310,7 +6310,7 @@ useEffect(() => {
         if (c.properties.cluster) {
           return (
             <Marker key={i} position={[lat, lng]} icon={icon}>
-              <Popup>{c.properties.point_count} points</Popup>
+              <Popup>{c.properties.point_count} orders</Popup>
             </Marker>
           );
         }
