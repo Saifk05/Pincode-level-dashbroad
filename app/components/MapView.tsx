@@ -6212,6 +6212,8 @@
 //   );
 // }
 
+
+
 "use client";
 
 import {
@@ -6232,7 +6234,7 @@ interface CSVRow {
   end_gps?: string;
   start_area_code?: string;
   category?: string;
-  count?: number; // duplicate count
+  created_time?: string;
 }
 
 interface PointFeature {
@@ -6277,8 +6279,8 @@ function ClusterLayer({ points }: { points: PointFeature[] }) {
     return sc;
   }, [points]);
 
-  useEffect(() => {
-  if (!map) return; // <- Type-safe: returns void
+useEffect(() => {
+  if (!map) return;
 
   const update = () => {
     const b = map.getBounds();
@@ -6287,7 +6289,7 @@ function ClusterLayer({ points }: { points: PointFeature[] }) {
     const cls = index.getClusters(
       [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()],
       zoom
-    ) as ClusterFeature[];
+    ) as any;
 
     setClusters(cls);
   };
@@ -6296,7 +6298,7 @@ function ClusterLayer({ points }: { points: PointFeature[] }) {
   update();
 
   return () => {
-    map.off("moveend", update);
+    map.off("moveend", update); // <-- FIXED cleanup
   };
 }, [map, index]);
 
@@ -6322,6 +6324,8 @@ function ClusterLayer({ points }: { points: PointFeature[] }) {
               Pincode: {r.start_area_code}
               <br />
               Category: {r.category}
+              <br />
+              Time: {r.created_time}
             </Popup>
           </Marker>
         );
@@ -6344,7 +6348,7 @@ export default function MapView() {
   const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [mapRef, setMapRef] = useState<L.Map | null>(null);
 
-  /* --- COUNTERS --- */
+  /* --- Counters --- */
   const [totalRows, setTotalRows] = useState(0);
   const [removedNull, setRemovedNull] = useState(0);
   const [removedSameGPS, setRemovedSameGPS] = useState(0);
@@ -6368,56 +6372,54 @@ export default function MapView() {
           const cats = new Set<string>();
 
           const pairCount: Record<string, number> = {};
-          const duplicateList: Array<CSVRow & { count: number }> = [];
+          const duplicates: Array<CSVRow & { count: number }> = [];
 
           let nullCount = 0,
             sameGPSCount = 0,
             duplicateCount = 0;
 
           res.data.forEach((row) => {
-            /* ---------------- REMOVE NULL / MISSING ---------------- */
-            if (
-              !row.start_gps ||
-              !row.end_gps ||
-              row.start_gps.trim() === "" ||
-              row.end_gps.trim() === "" ||
-              row.start_gps.toUpperCase() === "NULL" ||
-              row.end_gps.toUpperCase() === "NULL"
-            ) {
+            if (!row.start_gps || !row.end_gps) {
               nullCount++;
               return;
             }
 
-            const [lat1, lng1] = row.start_gps.split(",").map(Number);
-            const [lat2, lng2] = row.end_gps.split(",").map(Number);
+            // USE EXACT RAW VALUES, DO NOT NORMALIZE
+            const startParts = row.start_gps.split(",").map(Number);
+            const endParts = row.end_gps.split(",").map(Number);
+
+            if (startParts.length !== 2 || endParts.length !== 2) {
+              nullCount++;
+              return;
+            }
+
+            const [lat1, lng1] = startParts;
+            const [lat2, lng2] = endParts;
 
             if (isNaN(lat1) || isNaN(lng1) || isNaN(lat2) || isNaN(lng2)) {
               nullCount++;
               return;
             }
 
-            /* ---------------- REMOVE start == end ---------------- */
+            // Remove rows where start == end EXACTMATCH
             if (lat1 === lat2 && lng1 === lng2) {
               sameGPSCount++;
               return;
             }
 
-            /* ---------------- COUNT PAIRS ---------------- */
-            const key = `${lat1},${lng1}_${lat2},${lng2}`;
-            pairCount[key] = (pairCount[key] || 0) + 1;
+            // EXACT duplicate detection (raw values)
+            const rawKey = `${row.start_gps}_${row.end_gps}`;
+            pairCount[rawKey] = (pairCount[rawKey] || 0) + 1;
 
-            // This row is a duplicate (2nd, 3rd, 4th… occurrence)
-            if (pairCount[key] > 1) {
-              duplicateList.push({ ...row, count: pairCount[key] });
+            if (pairCount[rawKey] > 1) {
+              duplicates.push({ ...row, count: pairCount[rawKey] });
               duplicateCount++;
               return;
             }
 
-            /* ---------------- FILTER VALUES ---------------- */
             if (row.start_area_code) pins.add(row.start_area_code);
             if (row.category) cats.add(row.category);
 
-            /* ---------------- ADD TO MAP ---------------- */
             pts.push({
               type: "Feature",
               geometry: { type: "Point", coordinates: [lng1, lat1] },
@@ -6425,14 +6427,14 @@ export default function MapView() {
             });
           });
 
-          setDuplicateSamples(duplicateList); // <-- ALL duplicates
-
           setRemovedNull(nullCount);
           setRemovedSameGPS(sameGPSCount);
           setRemovedDuplicates(duplicateCount);
           setFinalRows(pts.length);
 
+          setDuplicateSamples(duplicates);
           setRawPoints(pts);
+
           setPincodes(["ALL", ...Array.from(pins)]);
           setCategories(["ALL", ...Array.from(cats)]);
         },
@@ -6442,7 +6444,7 @@ export default function MapView() {
     loadCSV();
   }, []);
 
-  /* ------------ FILTERED POINTS ------------ */
+  /* ------------ Filtered Points ------------ */
   const filteredPoints = useMemo(() => {
     return rawPoints.filter((p) => {
       const pinOK =
@@ -6457,7 +6459,7 @@ export default function MapView() {
     });
   }, [rawPoints, selectedPincode, selectedCategory]);
 
-  /* ------------ AUTO-ZOOM ------------ */
+  /* ------------ Auto-Zoom ------------ */
   useEffect(() => {
     if (!mapRef || selectedPincode === "ALL") return;
 
@@ -6476,18 +6478,16 @@ export default function MapView() {
 
   return (
     <div>
-      {/* ---------------- STATS PANEL ---------------- */}
-      <div style={{ padding: "10px", background: "#f0f0f0", marginBottom: "10px" }}>
+      {/* ---------------- STATS ---------------- */}
+      <div style={{ padding: "10px", background: "#f0f0f0" }}>
         <h3>Data Cleaning Summary</h3>
-
-        <p>Total rows in CSV: <b>{totalRows}</b></p>
+        <p>Total rows: <b>{totalRows}</b></p>
         <p>Removed NULL rows: <b>{removedNull}</b></p>
-        <p>Removed start_gps = end_gps: <b>{removedSameGPS}</b></p>
-        <p>Removed duplicate GPS pairs: <b>{removedDuplicates}</b></p>
-        <p>Final cleaned rows: <b>{finalRows}</b></p>
+        <p>Removed same GPS rows: <b>{removedSameGPS}</b></p>
+        <p>Removed duplicate pairs: <b>{removedDuplicates}</b></p>
+        <p>Final rows: <b>{finalRows}</b></p>
 
-        {/* ---- ALL DUPLICATES ---- */}
-        <h4>All Duplicate GPS Pairs Removed:</h4>
+        <h4>Duplicate Rows (ALL occurrences):</h4>
 
         <div style={{ maxHeight: "400px", overflowY: "scroll", background: "white" }}>
           <table border={1} cellPadding={5} style={{ width: "100%" }}>
@@ -6496,9 +6496,10 @@ export default function MapView() {
                 <th>#</th>
                 <th>start_gps</th>
                 <th>end_gps</th>
-                <th>Repeated</th>
+                <th>created_time</th>
                 <th>category</th>
                 <th>pincode</th>
+                <th>count</th>
               </tr>
             </thead>
             <tbody>
@@ -6507,9 +6508,10 @@ export default function MapView() {
                   <td>{i + 1}</td>
                   <td>{row.start_gps}</td>
                   <td>{row.end_gps}</td>
-                  <td>{row.count}</td>
+                  <td>{row.created_time}</td>
                   <td>{row.category}</td>
                   <td>{row.start_area_code}</td>
+                  <td>{row.count}</td>
                 </tr>
               ))}
             </tbody>
@@ -6520,14 +6522,20 @@ export default function MapView() {
       {/* ---------------- FILTERS ---------------- */}
       <div className="control-panel">
         <label>Pincode</label>
-        <select value={selectedPincode} onChange={(e) => setSelectedPincode(e.target.value)}>
+        <select
+          value={selectedPincode}
+          onChange={(e) => setSelectedPincode(e.target.value)}
+        >
           {pincodes.map((p) => (
             <option key={p}>{p}</option>
           ))}
         </select>
 
         <label>Category</label>
-        <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+        >
           {categories.map((c) => (
             <option key={c}>{c}</option>
           ))}
@@ -6542,10 +6550,7 @@ export default function MapView() {
       >
         <MapRefSetter setMap={setMapRef} />
 
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution="© OpenStreetMap contributors"
-        />
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
         <ClusterLayer points={filteredPoints} />
       </MapContainer>
